@@ -60,10 +60,10 @@ proposals_per_img = 300     # maximum proposals to be generated per image
 #---------------------------------------------------------------------------#
 #---------------- Work_dir, Checkpoint & Config file settings --------------#
 #---------------------------------------------------------------------------#
-root = './'
-config = './faster_rcnn_r50_fpn_AL_voc0712.py'
-base_config = './configs/pascal_voc/faster_rcnn_r50_fpn_1x_voc0712.py'
-work_dir = './work_dirs/' + config.split('/')[-1].split('.')[0]
+root = '../../'
+config = '../al_configs/faster_rcnn_r50_fpn_AL_voc0712.py'
+base_config = root + '/configs/pascal_voc/faster_rcnn_r50_fpn_1x_voc0712.py'
+work_dir = '../work_dirs/' + config.split('/')[-1].split('.')[0]
 train_script = root + 'tools/train.py'
 test_script = root + 'tools/test.py'
 
