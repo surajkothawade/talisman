@@ -1,10 +1,8 @@
-# import numpy
 import numpy as np
 import os
 import sys
 import gc
 
-# import submodlib
 import submodlib
 from talisman.utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
 from talisman.utils.custom_dataset import build_dataset_with_indices, create_custom_dataset, get_class_statistics, prepare_val_file
@@ -23,7 +21,6 @@ import mmdet
 print(mmdet.__version__)
 
 # Check mmcv installation
-import mmcv
 from mmcv.ops import get_compiling_cuda_version, get_compiler_version
 print(get_compiling_cuda_version())
 print(get_compiler_version())
