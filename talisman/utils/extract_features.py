@@ -252,3 +252,28 @@ def extract_global_descriptor(model, img_loader, no_of_imgs=None):
               img_features.append(img_feature)  # add feature to list
               img_indices.append(indices[j])    # add image index to list
   return img_features, img_indices
+
+
+#---------------------------------------------------------------------------#
+#------ Custom function to extract the smallest backbone + fpn features  ---#
+#------ from passed dataset of dim size * 18 * 32 along with indices -------#
+#---------------------------------------------------------------------------#
+def extract_embeddings(model, img_loader):
+  device = next(model.parameters()).device    # model device      
+  embeddings = []
+  embedding_indices = list()
+  for i, data_batch in enumerate(tqdm(img_loader)): # for each batch
+        # split the dataloader output into image_data and dataset indices
+        img_data, indices = data_batch[0], data_batch[1].numpy()
+        # print(indices)
+        imgs, img_metas = img_data['img'].data[0].to(device=device), img_data['img_metas'].data[0]
+        
+        # extract image features from backbone + fpn
+        with torch.no_grad():
+            batch_features, _ = torch.max(model.extract_feat(imgs)[-2],dim=1)
+            # print(features.shape)
+        for j, img_features in enumerate(batch_features):
+            xf = img_features.detach().cpu().numpy()
+            embeddings.append(xf)
+            embedding_indices.append(indices[j])
+  return np.array(embedding_indices), np.array(embeddings)
