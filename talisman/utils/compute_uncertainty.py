@@ -1,6 +1,6 @@
 import torch
-from extract_features import extract_proposal_features, get_RoI_features
-
+from extract_features import get_RoI_features
+from extract_proposals import extract_proposal_features
 
 
 #---------------------------------------------------------------------------#
