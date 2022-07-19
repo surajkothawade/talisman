@@ -22,17 +22,16 @@ print(get_compiler_version())
 # import other modules
 import copy
 import submodlib
-from custom_utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
-from custom_utils.custom_dataset import build_dataset_with_indices, create_custom_dataset, get_class_statistics, prepare_val_file
-from custom_utils.extract_features import get_query_RoI_features, get_unlabelled_RoI_features, get_unlabelled_top_k_RoI_features
-from custom_utils.utils import execute
+from active_learning_utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
+from active_learning_utils.custom_dataset import build_dataset_with_indices, create_custom_dataset, get_class_statistics, prepare_val_file
+from active_learning_utils.extract_features import get_query_RoI_features, get_unlabelled_RoI_features, get_unlabelled_top_k_RoI_features
+from active_learning_utils.utils import execute
 
 # import mmcv functionalities
 from mmcv import Config
 from mmdet.apis import init_detector
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.datasets.dataset_wrappers import RepeatDataset
-
 
 #---------------------------------------------------------------------------#
 #------------------ initialize training parameters -------------------------#
@@ -42,7 +41,7 @@ no_of_rounds= 8 # No. of Rounds to run
 max_epochs=150  # maximum no. of epochs to run during training
 seed = 42       # seed value to be used throughout training
 trn_times = 1   # how many times dataset augmentation to be used; final_dataset_size = sizeof(PascalVOC) * trn_times
-run = 1         # run number
+run = 1         # run number (each run number will create a separate folder under work dir)
 eval_interval = max_epochs # evaluate model after how many epochs
 initialTraining = False
 #---------------------------------------------------------------------------#
@@ -57,7 +56,7 @@ proposals_per_img = 300     # maximum proposals to be generated per image
 #---------------- Work_dir, Checkpoint & Config file settings --------------#
 #---------------------------------------------------------------------------#
 root = '../../'       # should point to root talisman directory
-data_root = root + 'data/VOCdevkit' # root directory of data
+data_root = root + '/data/VOCdevkit' # root directory of data
 base_config = root + '/configs/pascal_voc/faster_rcnn_r50_fpn_1x_voc0712.py' # this is fixed for all experiments
 config_filename = 'faster_rcnn_r50_fpn_AL_voc0712_rare_class.py'        # change config file name as per experiment
 work_dir = os.path.join(root, 'work_dirs/' + config_filename.split('/')[-1].split('.')[0])
@@ -84,7 +83,8 @@ gpu_id =  sys.argv[1]
 
 cfg = Config.fromfile(base_config) # load base config from the base file
 
-cfg_options={}                # edit/update required parms
+#------------------------ DO NOT EDIT BELOW LINES --------------------------#
+cfg_options={}
 cfg_options['seed'] = seed
 cfg_options['runner.max_epochs'] = max_epochs
 cfg_options['data.samples_per_gpu'] = samples_per_gpu
@@ -108,6 +108,7 @@ cfg_options['model.train_cfg.rpn_proposal.max_per_img'] = proposals_per_img
 cfg_options['model.test_cfg.rpn.max_per_img'] = proposals_per_img
 cfg_options['evaluation.interval'] = eval_interval
 cfg_options['gpu_ids'] = gpu_id
+#--------------------------- END OF DO NOT EDIT ----------------------------#
 
 #---------------------------------------------------------------------------#
 #--------------------------- Update Config file ----------------------------#

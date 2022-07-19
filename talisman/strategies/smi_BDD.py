@@ -3,12 +3,6 @@ import os
 import sys
 import gc
 
-import submodlib
-from talisman.utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
-from talisman.utils.custom_dataset import build_dataset_with_indices, create_custom_dataset_bdd, get_class_statistics, get_image_wise_attributes, get_rare_attribute_statistics, prepare_rare_test_file, prepare_val_file
-from talisman.utils.extract_features import get_query_RoI_features, get_unlabelled_RoI_features, get_unlabelled_top_k_RoI_features
-from talisman.utils.utils import execute
-
 # Check Pytorch installation
 import torch, torchvision
 from torch._C import device
@@ -27,6 +21,11 @@ print(get_compiler_version())
 
 # import other modules
 import copy
+import submodlib
+from active_learning_utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
+from active_learning_utils.custom_dataset import build_dataset_with_indices, create_custom_dataset_bdd, get_class_statistics, get_image_wise_attributes, get_rare_attribute_statistics, prepare_rare_test_file, prepare_val_file
+from active_learning_utils.extract_features import get_query_RoI_features, get_unlabelled_RoI_features, get_unlabelled_top_k_RoI_features
+from active_learning_utils.utils import execute
 
 # import mmcv functionalities
 from mmcv import Config
@@ -37,13 +36,13 @@ from mmdet.datasets.dataset_wrappers import RepeatDataset
 #---------------------------------------------------------------------------#
 #------------------ initialize training parameters -------------------------#
 #---------------------------------------------------------------------------#
-budget = 400    # set Active Learning Budget
-no_of_rounds= 7 # No. of Rounds to run
+budget = 200    # set Active Learning Budget
+no_of_rounds= 8 # No. of Rounds to run
 max_epochs=150  # maximum no. of epochs to run during training
 seed = 42       # seed value to be used throughout training
-trn_times = 1   # default is 10 for PascalVOC
-run = 400       # run number
-eval_interval = max_epochs # eval after x epochs
+trn_times = 1   # how many times dataset augmentation to be used; final_dataset_size = sizeof(BDD100K) * trn_times
+run = 1         # run number (each run number will create a separate folder under work dir)
+eval_interval = max_epochs # evaluate model after how many epochs
 initialTraining = False
 #---------------------------------------------------------------------------#
 #----------------- Faster RCNN specific configuration ----------------------#
@@ -56,11 +55,12 @@ proposals_per_img = 300     # maximum proposals to be generated per image
 #---------------------------------------------------------------------------#
 #---------------- Work_dir, Checkpoint & Config file settings --------------#
 #---------------------------------------------------------------------------#
-root = '../../'
-# Desired config for rare class/slice - currently set for motorcycles at night rare slice
-config = '../al_configs/faster_rcnn_r50_fpn_AL_bdd100k_mc_night.py'
-base_config = './configs/bdd100k/faster_rcnn_r50_fpn_1x_bdd100k_vocfmt.py'
-work_dir = '../work_dirs/' + config.split('/')[-1].split('.')[0]
+root = '../../'       # should point to root talisman directory
+data_root = root + '/data/bdd100k' # root directory of data
+base_config = root + '/configs/bdd100k/faster_rcnn_r50_fpn_1x_bdd100k_vocfmt.py' # this is fixed for all experiments
+config_filename = 'faster_rcnn_r50_fpn_AL_bdd100k_motorcycle_night.py'        # change config file name as per experiment
+work_dir = os.path.join(root, 'work_dirs/' + config_filename.split('/')[-1].split('.')[0])
+config = os.path.join(work_dir, config_filename)      # custom config filepath; Do Not Change this
 train_script = root + 'tools/train.py'
 test_script = root + 'tools/test.py'
 
@@ -83,13 +83,24 @@ gpu_id =  sys.argv[1]
 
 cfg = Config.fromfile(base_config) # load base config from the base file
 
-cfg_options={}                # edit/update required parms
+#------------------------ DO NOT EDIT BELOW LINES --------------------------#
+cfg_options={}
 cfg_options['seed'] = seed
 cfg_options['runner.max_epochs'] = max_epochs
-cfg_options['data.train.times'] = trn_times
 cfg_options['data.samples_per_gpu'] = samples_per_gpu
-cfg_options['data.val.ann_file'] = ['trainval_07.txt', 'trainval_12.txt']
-cfg_options['data.val.img_prefix'] = copy.deepcopy(cfg.data.train.dataset.img_prefix)
+cfg_options['data.train.times'] = trn_times
+
+cfg_options['data_root'] = data_root
+cfg_options['data.train.dataset.ann_file'] = data_root + '/VOC2007/ImageSets/Main/train.txt'
+cfg_options['data.train.dataset.img_prefix'] = data_root + '/VOC2007/'
+cfg_options['data.val.ann_file'] = 'trainval_07.txt'
+cfg_options['data.val.img_prefix'] = data_root + '/VOC2007/'
+cfg_options['data.test.ann_file'] = [
+                data_root + '/VOC2012/ImageSets/Main/val.txt',
+                data_root + '/VOC2012/ImageSets/Main/rare_test.txt'
+            ]
+cfg_options['data.test.img_prefix'] = [data_root + '/VOC2012/', data_root + '/VOC2012/']
+
 cfg_options['checkpoint_config.interval'] = eval_interval
 cfg_options['optimizer.lr'] = optim_lr
 cfg_options['optimizer.weight_decay'] = optim_weight_decay
@@ -97,6 +108,7 @@ cfg_options['model.train_cfg.rpn_proposal.max_per_img'] = proposals_per_img
 cfg_options['model.test_cfg.rpn.max_per_img'] = proposals_per_img
 cfg_options['evaluation.interval'] = eval_interval
 cfg_options['gpu_ids'] = gpu_id
+#--------------------------- END OF DO NOT EDIT ----------------------------#
 
 #---------------------------------------------------------------------------#
 #--------------------------- Update Config file ----------------------------#
@@ -114,7 +126,7 @@ file_ptr.close()
 #------------------ Class Imbalance specific setting -----------------------#
 #---------------------------------------------------------------------------#
 split_cfg = {     
-             "per_imbclass_train":90,  # Number of samples per rare class in the train dataset
+             "per_imbclass_train":10,  # Number of samples per rare class in the train dataset
              "per_imbclass_val":10,    # Number of samples per rare class in the validation dataset
              "per_imbclass_attr":10,   # Number of samples per rare class in the unlabeled dataset
              "per_class_train":100,    # Number of samples per unrare class in the train dataset
@@ -148,17 +160,17 @@ print('No of training samples and budget: ', no_of_trn_samples, budget)
 all_classes = set(range(len(trn_dataset.CLASSES)))
 
 # get image wise attribute mapping
-attribute_dict, img_attribute_dict = get_image_wise_attributes('../data/det_train.json')
+attribute_dict, img_attribute_dict = get_image_wise_attributes(data_root + '/../det_train.json')
 
 rare_class_name = trn_dataset.CLASSES[imbalanced_classes[0]]
-rare_test_file = '../data/bdd100k/VOC2012/ImageSets/Main/' + str(sys.argv[2])
+rare_test_file = data_root + '/VOC2012/ImageSets/Main/' + str(sys.argv[2])
 if(not(os.path.exists(rare_test_file))):
-  rare_test_img_count = prepare_rare_test_file('data/det_val.json', attr_details, rare_test_file, rare_class_name)
+  rare_test_img_count = prepare_rare_test_file(data_root + '/../det_val.json', attr_details, rare_test_file, rare_class_name)
   print("Test file for attribute imbalance created with ", rare_test_img_count, " images")
 
 custom_test_file = [
-          '../data/bdd100k/VOC2012/ImageSets/Main/val.txt',
-          '../data/bdd100k/VOC2012/ImageSets/Main/' + str(sys.argv[2])
+          data_root + '/VOC2012/ImageSets/Main/val.txt',
+          data_root + '/VOC2012/ImageSets/Main/' + str(sys.argv[2])
       ]
 #---------------------------------------------------------------------------#
 #---- Create Imbalanced Labelled set and Query set from training dataset ---#
@@ -196,7 +208,7 @@ if(initialTraining):
   print("Query Indices selected: ", query_indices)
 
   # prepare Validation file from labelled file
-  custom_val_file = prepare_val_file(trn_dataset, labelled_indices)
+  custom_val_file = prepare_val_file(trn_dataset, labelled_indices, strat_dir=work_dir)
   print(custom_val_file)
 
   # set log file
@@ -284,7 +296,7 @@ for file in ("labelledIndices.txt", "unlabelledIndices.txt", "queryIndices.txt")
 
 # set checkpoint and log file name
 last_epoch_checkpoint = strat_dir + '/epoch_' + str(max_epochs) + '.pth'
-test_log_file = os.path.join(strat_dir,"SMI_test_mAP.txt")
+test_log_file = os.path.join(strat_dir,smi_function + "_test_mAP.txt")
 
 # load from labelled, unlabelled & query indices fies
 labelled_indices = np.loadtxt(strat_dir+"/labelledIndices.txt",dtype=int)
