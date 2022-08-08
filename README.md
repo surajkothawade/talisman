@@ -1,6 +1,8 @@
 # TALISMAN
 Official PyTorch implementation of TALISMAN
 
+<hr>
+
 # Prerequisites
 ### Install MMCV
 ```
@@ -10,6 +12,9 @@ pip install mmcv-full
 ```
 pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ submodlib
 ```
+
+<hr>
+
 # Clone Talisman repo from Github & Install dependencies
 ```
 git clone https://github.com/surajkothawade/talisman.git
@@ -19,6 +24,7 @@ pip install -r requirements/build.txt
 pip install -r requirements/runtime.txt
 pip install -v -e .
 ```
+
 # Prepare Data
 ###	Prepare VOC Dataset
 ##### Download Pascal-VOC 07+12 dataset
@@ -37,15 +43,19 @@ tar -xvf '\<path to VOCtest_06-Nov-2007.tar\>'     -C '<path to talisman/data/>'
 * Download 100K_images zip and Detection_2020 zip from https://bdd-data.berkeley.edu/
 * Unzip 'bdd100k_images_100k.zip' & 'bdd100k_det_20_labels_trainval.zip'
 * Convert det_20/labels/det_train.json & det_20/labels/det_val.json to coco format (Refer to https://doc.bdd100k.com/format.html#to-coco)
-* Convert coco annotations to voc format
+* Convert coco annotations to voc format by running below commands in order -
 ```
 pip install imgann
 from imgann import Convertor
 Convertor.coco2voc('<path to images/100k/train>', '<path to labels/det_20/det_train_coco.json>', '<train_voc annotation output path>', False)
 Convertor.coco2voc('<path to images/100k/val>', '<path to labels/det_20/det_val_coco.json>', '<val_voc annotation output path>', False)
 ```
-* Create empty folder structure inside 'talisman’ as below and copy images, label annotations & .txt helper files in respective folders as shown below -
- 
+* Create empty folder structure inside **talisman/** as below and copy images, label annotations & .txt helper files in respective folders as shown below -
+
+![Alt Text](bdd_helper/data_folder_annot.JPG)
+
+<hr>
+
 # Set Experiment Parameters in scripts inside `talisman/strategies`
 ##### Set training parameters within the script as per requirement (line 39-46)
 *	set `initialTraining = True` if want to create first round model and labelled dataset
@@ -103,6 +113,8 @@ attr_property | attr_value
 timeofday | night
 weather | rainy
 scene | highway
+
+<hr>
 
 # Run Experiments
 * For any experiment, run the first strategy with parameter `initialTraining = True` to create first round model and initial labelled seed set
